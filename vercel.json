@@ -1,0 +1,9 @@
+{
+  "rewrites": [{ "source": "/", "destination": "/camera-probe.html" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{ "key": "Permissions-Policy", "value": "camera=(self), usb=(self)" }]
+    }
+  ]
+}
