@@ -48,6 +48,22 @@ powershell -ExecutionPolicy Bypass -File .\camera-probe.ps1 -NoWizard  # just li
 - If **ffmpeg** is installed (`winget install Gyan.FFmpeg`), it also saves one PNG and one raw native frame.
 - Output goes to `Desktop\thermal-probe-<time>\` plus a `.zip` of it. Send the zip.
 
+## 3. Mac: `camera-probe-mac.sh`
+
+Use this when there is no Windows PC. Any Mac with a USB-C port works.
+
+```bash
+curl -fsSLO https://thermal-camera-probe.vercel.app/camera-probe-mac.sh
+bash camera-probe-mac.sh               # unplug/replug wizard (recommended)
+bash camera-probe-mac.sh --no-wizard   # just list USB devices and cameras
+```
+
+- Uses only tools built into macOS (`ioreg`, `system_profiler`, and AVFoundation through `osascript`). Nothing to install.
+- Reports the vendor and product ID, USB interface classes, and every video format macOS offers (FourCC, size, fps). Raw greyscale formats (`L016`, `L008`) or a frame much taller than wide point to temperature data.
+- If **ffmpeg** is installed (`brew install ffmpeg`), it also saves one PNG and one raw native frame. macOS may ask to let Terminal use the camera.
+- Output goes to `Desktop/thermal-probe-<time>/` plus a `.zip` of it. Send the zip.
+- Opening the web page (`camera-probe.html`) in Chrome on the same Mac also works. Chrome on macOS lists USB webcams, so it can capture and analyse a frame.
+
 ## Limits
 
 - Both tools can show **whether** temperature data is there. Neither can confirm the readings are **accurate**. That needs a comparison against the maker's app on a target of known temperature.
