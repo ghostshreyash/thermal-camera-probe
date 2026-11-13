@@ -11,11 +11,11 @@
 #   bash camera-probe-mac.sh --no-wizard   just list USB devices and cameras
 #   bash camera-probe-mac.sh --out DIR     save somewhere other than the Desktop
 #
-# Optional: with ffmpeg installed (brew install ffmpeg) it also saves one PNG
-# frame and one raw native frame from the camera.
+# With ffmpeg installed (brew install ffmpeg) it also saves one PNG frame and
+# ten raw frames exactly as the camera sent them.
 
 export LC_ALL=C
-VERSION=1
+VERSION=2
 WIZARD=1
 OUTBASE="$HOME/Desktop"
 
@@ -175,7 +175,7 @@ if [ "$WIZARD" -eq 1 ]; then
   usb_list > "$RAW/usb-before.txt"
   cams_list > "$RAW/cameras-before.txt"
   step "Step 2 of 2"
-  ask "Now PLUG the camera in, wait about 5 seconds, then press Enter... "
+  ask "Now PLUG the camera in, point it at the test object, wait about 5 seconds, then press Enter... "
   sleep 2
 fi
 usb_list > "$RAW/usb-after.txt"
@@ -253,19 +253,26 @@ fi
 IFS='|' read -r F_COUNT F_TALL F_RAW B_CC B_W B_H B_FPS <<< "$FMT"
 
 # ------------------------------------------------------ optional frame grab
-FF_NOTE="ffmpeg not installed (optional: brew install ffmpeg)"
+FF_NOTE="ffmpeg not installed, so no raw frames were saved"
 FF_STREAM=""
-if [ -n "$FFMPEG" ] && [ -n "$CAM_IDX" ]; then
-  step "Grabbing a frame with ffmpeg"
+if [ -n "$FFMPEG" ] && { [ -n "$CAM_IDX" ] || [ -n "$TARGET" ]; }; then
+  step "Grabbing frames with ffmpeg"
   "$FFMPEG" -hide_banner -f avfoundation -list_devices true -i "" > "$RAW/ffmpeg-devices.txt" 2>&1
-  FF_IDX=$(awk -v name="$CAM_NAME" '
-    /video devices/ { v=1; next } /audio devices/ { v=0 }
-    v && match($0, /\[[0-9]+\] /) { n=substr($0, RSTART+1, RLENGTH-3); if (substr($0, RSTART+RLENGTH) == name) { print n; exit } }' \
-    "$RAW/ffmpeg-devices.txt")
+  ff_find() {
+    awk -v name="$1" '
+      /video devices/ { v=1; next } /audio devices/ { v=0 }
+      v && match($0, /\[[0-9]+\] /) { n=substr($0, RSTART+1, RLENGTH-3); if (substr($0, RSTART+RLENGTH) == name) { print n; exit } }'       "$RAW/ffmpeg-devices.txt"
+  }
+  FF_IDX=""
+  for nm in "$CAM_NAME" "$T_PROD" "UVC Camera"; do
+    [ -n "$nm" ] && [ -z "$FF_IDX" ] && FF_IDX=$(ff_find "$nm")
+  done
   [ -z "$FF_IDX" ] && FF_IDX="$CAM_IDX"
-
+fi
+if [ -n "$FFMPEG" ] && [ -n "$FF_IDX" ]; then
   ARGS=(-hide_banner -f avfoundation)
-  if [ -n "$B_FPS" ]; then ARGS+=(-framerate "$(printf '%.2f' "$B_FPS")"); fi
+  # ffmpeg defaults to 29.97 fps, which this camera (max 25) rejects.
+  if [ -n "$B_FPS" ]; then ARGS+=(-framerate "$(printf '%.2f' "$B_FPS")"); else ARGS+=(-framerate 25); fi
   if [ "${B_W:-0}" -gt 0 ] 2>/dev/null; then ARGS+=(-video_size "${B_W}x${B_H}"); fi
   case "$B_CC" in
     yuvs) ARGS+=(-pixel_format yuyv422) ;;
@@ -273,18 +280,24 @@ if [ -n "$FFMPEG" ] && [ -n "$CAM_IDX" ]; then
     420v|420f) ARGS+=(-pixel_format nv12) ;;
     L008) ARGS+=(-pixel_format gray) ;;
   esac
-  ARGS+=(-i "${FF_IDX}:none" -vf "select=gte(n\,10)" -frames:v 1 -y)
+  ARGS+=(-i "${FF_IDX}:none" -vf "select=gte(n\,10)")
 
   say "macOS may ask to let Terminal use the camera. Click OK if it does."
-  "$FFMPEG" "${ARGS[@]}" "$OUT/frame.png" > "$RAW/ffmpeg-png.txt" 2>&1
-  if [ ! -s "$OUT/frame.png" ] && grep -qi -e "not authori" -e "permission" "$RAW/ffmpeg-png.txt"; then
-    ask "Camera access was blocked. Allow Terminal in System Settings > Privacy & Security > Camera, then press Enter... "
-    "$FFMPEG" "${ARGS[@]}" "$OUT/frame.png" > "$RAW/ffmpeg-png.txt" 2>&1
+  "$FFMPEG" "${ARGS[@]}" -frames:v 1 -y "$OUT/frame.png" > "$RAW/ffmpeg-png.txt" 2>&1
+  if [ ! -s "$OUT/frame.png" ]; then
+    say "The first try did not get a picture (often the camera permission pop-up)."
+    ask "If macOS asked about the camera, click OK. Then press Enter to try again... "
+    "$FFMPEG" "${ARGS[@]}" -frames:v 1 -y "$OUT/frame.png" > "$RAW/ffmpeg-png.txt" 2>&1
   fi
-  "$FFMPEG" "${ARGS[@]}" -f rawvideo "$OUT/frame-native.raw" > "$RAW/ffmpeg-raw.txt" 2>&1
-  FF_STREAM=$(grep -m1 "Stream #0:0" "$RAW/ffmpeg-png.txt" | sed 's/^ *//')
-  if [ -s "$OUT/frame.png" ]; then FF_NOTE="frame.png saved"; else FF_NOTE="ffmpeg could not grab a frame (see raw/ffmpeg-png.txt)"; fi
-  [ -s "$OUT/frame-native.raw" ] && FF_NOTE="$FF_NOTE; frame-native.raw saved ($(wc -c < "$OUT/frame-native.raw" | tr -d ' ') bytes)"
+  # Ten consecutive frames, bytes exactly as the camera sent them.
+  "$FFMPEG" "${ARGS[@]}" -frames:v 10 -f rawvideo -y "$OUT/frames-native.raw" > "$RAW/ffmpeg-raw.txt" 2>&1
+  FF_STREAM=$(grep -m1 "Stream #0:0" "$RAW/ffmpeg-raw.txt" | sed 's/^ *//')
+  if [ -s "$OUT/frame.png" ]; then FF_NOTE="frame.png saved"; else FF_NOTE="ffmpeg could not grab a picture (see raw/ffmpeg-png.txt)"; fi
+  if [ -s "$OUT/frames-native.raw" ]; then
+    FF_NOTE="$FF_NOTE; frames-native.raw saved ($(wc -c < "$OUT/frames-native.raw" | tr -d ' ') bytes, 10 frames)"
+  else
+    FF_NOTE="$FF_NOTE; raw frames NOT saved (see raw/ffmpeg-raw.txt)"
+  fi
 elif [ -n "$FFMPEG" ]; then
   FF_NOTE="ffmpeg found, but no camera to grab from"
 fi
@@ -421,4 +434,8 @@ ditto -c -k --keepParent "$OUT" "$ZIP" 2>/dev/null
 step "Result"
 cat "$OUT/report.txt"
 say ""
-if [ -f "$ZIP" ]; then say "Send this file: $ZIP"; else say "Send the folder: $OUT"; fi
+if [ -z "$FFMPEG" ]; then
+  say "NOTE: ffmpeg is not installed, so the camera's raw frames were NOT saved."
+  say "      Install it (brew install ffmpeg) and run this again."
+fi
+if [ -f "$ZIP" ]; then say "DONE. Send this file: $ZIP"; else say "DONE. Send the folder: $OUT"; fi

@@ -60,7 +60,7 @@ bash camera-probe-mac.sh --no-wizard   # just list USB devices and cameras
 
 - Uses only tools built into macOS (`ioreg`, `system_profiler`, and AVFoundation through `osascript`). Nothing to install.
 - Reports the vendor and product ID, USB interface classes, and every video format macOS offers (FourCC, size, fps). Raw greyscale formats (`L016`, `L008`) or a frame much taller than wide point to temperature data.
-- If **ffmpeg** is installed (`brew install ffmpeg`), it also saves one PNG and one raw native frame. macOS may ask to let Terminal use the camera.
+- If **ffmpeg** is installed (`brew install ffmpeg`), it also saves one PNG and ten raw frames exactly as the camera sent them. macOS may ask to let Terminal use the camera.
 - Output goes to `Desktop/thermal-probe-<time>/` plus a `.zip` of it. Send the zip.
 - Opening the web page (`camera-probe.html`) in Chrome on the same Mac also works. Chrome on macOS lists USB webcams, so it can capture and analyse a frame.
 
