@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thermal Camera Test on Mac</title>
+<style>
+  :root {
+    --ink: #1b2430; --muted: #5b6676; --line: #d9dee5; --soft: #f3f5f8;
+    --accent: #0f6e5a; --accent-soft: #e5f3ef; --warn: #8a5a00; --warn-soft: #fff4dc;
+    --term-bg: #1e1f24; --term-ink: #e8e8e8; --term-dim: #9aa0a8; --term-hl: #7fd6a8;
+  }
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 10.5pt/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .page { max-width: 780px; margin: 0 auto; padding: 24px 16px; }
+  @media print { .page { padding: 0; max-width: none; } }
+  h1 { font-size: 21pt; line-height: 1.2; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 11pt; }
+  h2 { break-after: avoid; font-size: 14pt; margin: 26px 0 8px; padding-top: 10px; border-top: 2px solid var(--ink); display: flex; gap: 10px; align-items: baseline; }
+  h2 .tag { font-size: 9pt; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 10px; }
+  h3, h4 { break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; }
+  p { margin: 6px 0; }
+  ol, ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .steps > li { margin: 10px 0; padding-left: 4px; }
+  .steps > li::marker { font-weight: 700; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 9.5pt; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  kbd { font-family: inherit; font-size: 9pt; border: 1px solid #b9c0ca; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: #fff; white-space: nowrap; }
+  .cmd { margin: 6px 0 8px; background: var(--term-bg); color: var(--term-hl); font: 8pt/1.45 Menlo, Consolas, monospace; padding: 9px 10px; border-radius: 6px; white-space: pre; overflow-x: auto; break-inside: avoid; }
+  @media screen { .cmd { font-size: 9.5pt; } }
+  .cmd::before { content: "Copy and paste:"; display: block; color: var(--term-dim); font: 8pt/1.4 -apple-system, "Segoe UI", sans-serif; margin-bottom: 3px; letter-spacing: .02em; }
+  .term { margin: 6px 0 8px; background: var(--term-bg); color: var(--term-ink); font: 9pt/1.45 Menlo, Consolas, monospace; padding: 9px 12px; border-radius: 6px; white-space: pre-wrap; break-inside: avoid; }
+  .term::before { content: "What you will see:"; display: block; color: var(--term-dim); font: 8pt/1.4 -apple-system, "Segoe UI", sans-serif; margin-bottom: 3px; }
+  .term .hl { color: var(--term-hl); font-weight: 700; }
+  .term .dim { color: var(--term-dim); }
+  .box { border-radius: 6px; padding: 9px 12px; margin: 10px 0; break-inside: avoid; }
+  .note { background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+  .box strong:first-child { display: block; margin-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.8pt; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .check { list-style: none; padding-left: 0; }
+  .check li::before { content: "\2610"; margin-right: 8px; }
+  .overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+  @media (max-width: 560px) { .overview { grid-template-columns: 1fr 1fr; } }
+  .overview div { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .overview b { display: block; color: var(--accent); font-size: 9pt; }
+  .overview span { font-size: 9.5pt; }
+  .avoid { break-inside: avoid; }
+  .foot { margin-top: 28px; color: var(--muted); font-size: 9pt; border-top: 1px solid var(--line); padding-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Thermal Camera Test on a Mac</h1>
+<p class="sub">Step-by-step guide for testing the HIKMICRO MiniE thermal camera for the EVITA app</p>
+
+<div class="box note"><strong>Easiest way to follow this guide</strong>Open it on the Mac itself, in Safari: <code>thermal-camera-probe.vercel.app/mac-guide</code>. Then you can copy each command straight from the page.</div>
+
+<p><strong>Why we need this:</strong> the camera sends its raw sensor readings over USB. To show thermal images and temperatures inside EVITA, we need a few samples of these readings taken while the camera points at objects of known temperature. A small script collects them. It only reads information, changes nothing on the Mac and uploads nothing. You send us the files it saves.</p>
+
+<div class="overview">
+  <div><b>Part A</b><span>Get ready<br>5 min</span></div>
+  <div><b>Part B</b><span>One-time install<br>20–40 min</span></div>
+  <div><b>Part C</b><span>Run 3 tests<br>about 5 min each</span></div>
+  <div><b>Part D</b><span>Send the files<br>2 min</span></div>
+</div>
+
+<h2>Before you start</h2>
+<div class="grid">
+<ul class="check">
+  <li>A Mac with a USB-C port</li>
+  <li>The Mac's <strong>login password</strong> (an administrator account)</li>
+  <li>Internet connection</li>
+  <li>The HIKMICRO MiniE camera</li>
+</ul>
+<ul class="check">
+  <li>A phone with the HIKMICRO Viewer app (for reference readings)</li>
+  <li>A kettle or mug of <strong>hot water</strong></li>
+  <li>A plate or glass of <strong>cold water or ice</strong></li>
+  <li>About 45 minutes</li>
+</ul>
+</div>
+<div class="box warn"><strong>Office Macs</strong>If the Mac is managed by an IT team and blocks installing software, Part B may not work. In that case tell us before going further.</div>
+
+<!-- ============================================================ PART A -->
+<h2>Part A: Get ready <span class="tag">5 minutes</span></h2>
+
+<h3>A1. Open Terminal</h3>
+<ol class="steps">
+  <li>Press <kbd>⌘ Command</kbd> + <kbd>Space</kbd>. A search bar appears.</li>
+  <li>Type <code>Terminal</code> and press <kbd>Return</kbd>.</li>
+  <li>A window with a blinking cursor opens. This is where you will paste every command in this guide.</li>
+</ol>
+<div class="box note"><strong>How to run a command</strong>Copy the command from the dark box (select it, <kbd>⌘</kbd>+<kbd>C</kbd>), click inside the Terminal window, paste (<kbd>⌘</kbd>+<kbd>V</kbd>) and press <kbd>Return</kbd>. Wait until the cursor comes back before the next command. Keep this Terminal window open until you finish Part C.</div>
+
+<h3>A2. Download the test script</h3>
+<p>Paste this command and press <kbd>Return</kbd>. It saves the script into your <strong>Downloads</strong> folder.</p>
+<div class="cmd">curl -fsSLo ~/Downloads/camera-probe-mac.sh https://thermal-camera-probe.vercel.app/mac</div>
+<p>If nothing is printed and the cursor comes back, it worked. (If we also sent you the file <code>camera-probe-mac.sh</code> on WhatsApp, you can use either one. Just make sure it is in the Downloads folder.)</p>
+
+<!-- ============================================================ PART B -->
+<h2>Part B: One-time install <span class="tag">20–40 minutes, only once</span></h2>
+<p>The script needs a free tool called <strong>ffmpeg</strong> to save the camera's raw readings. It is installed with <strong>Homebrew</strong>, the standard free installer for Mac tools.</p>
+
+<h3>B1. Check whether Homebrew is already installed</h3>
+<div class="cmd">brew --version</div>
+<ul>
+  <li>If you see something like <code>Homebrew 4.4.0</code>, Homebrew is installed. <strong>Skip to B3.</strong></li>
+  <li>If you see <code>command not found: brew</code>, continue with B2.</li>
+</ul>
+
+<h3>B2. Install Homebrew</h3>
+<ol class="steps">
+  <li>Paste this command and press <kbd>Return</kbd>:
+    <div class="cmd">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</div></li>
+  <li>When it shows <code>Password:</code>, type the Mac's login password and press <kbd>Return</kbd>.
+    <div class="box warn"><strong>Nothing appears while you type the password</strong>No dots, no stars. That is normal on Mac. Type it carefully and press <kbd>Return</kbd>.</div></li>
+  <li>When it shows <code>Press RETURN/ENTER to continue</code>, press <kbd>Return</kbd>.</li>
+  <li>Wait. It may download Apple's "Command Line Tools" first. This can take <strong>10–30 minutes</strong>. Do not close the window.</li>
+  <li>It is finished when you see <code>Installation successful!</code> and the cursor comes back.</li>
+  <li>Paste this command so Terminal can find Homebrew, and press <kbd>Return</kbd>:
+    <div class="cmd">eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"</div>
+    Nothing is printed. That is fine.</li>
+</ol>
+
+<h3>B3. Install ffmpeg</h3>
+<div class="cmd">brew install ffmpeg</div>
+<p>This takes <strong>5–15 minutes</strong> and prints a lot of text. When the cursor comes back, check it worked:</p>
+<div class="cmd">ffmpeg -version</div>
+<div class="term"><span class="hl">ffmpeg version 7.1</span> Copyright (c) 2000-2024 the FFmpeg developers
+<span class="dim">built with Apple clang ...</span></div>
+<p>The exact version number does not matter. If you see <code>command not found: ffmpeg</code>, paste the command from step B2.6 again, then try once more.</p>
+
+<!-- ============================================================ PART C -->
+<h2>Part C: Run the tests <span class="tag">about 5 minutes per test</span></h2>
+<p>We need <strong>3 tests</strong>, one per object. For each test you take two readings of the <strong>same object</strong>: first with the script on the Mac, then with the HIKMICRO app on the phone.</p>
+
+<table>
+  <tr><th>Test</th><th>Point the camera at</th><th>Tip</th></tr>
+  <tr><td><strong>1. Hot</strong></td><td>Kettle or mug filled with hot water</td><td>Hot water cools quickly. Do the phone reading right after the Mac.</td></tr>
+  <tr><td><strong>2. Cold</strong></td><td>Plate or glass with cold water or ice</td><td>Same as above.</td></tr>
+  <tr><td><strong>3. Hand</strong></td><td>An open palm</td><td>Hold the hand still, about 30 cm from the camera.</td></tr>
+</table>
+
+<div class="box note"><strong>Keep the camera steady</strong>Hold it (or rest it) about <strong>30 cm</strong> from the object so the object fills most of the view. Keep the same distance for the Mac and phone readings.</div>
+
+<h3>For each test, follow C1 to C4</h3>
+
+<h4 style="margin:12px 0 4px">C1. Start the script</h4>
+<div class="cmd">bash ~/Downloads/camera-probe-mac.sh</div>
+<div class="term">Thermal camera probe for macOS (v2). Read-only; changes nothing.
+Report folder: /Users/<span class="dim">yourname</span>/Desktop/thermal-probe-20261114-101500
+
+== Step 1 of 2 ==
+<span class="hl">Close the camera maker's app, UNPLUG the thermal camera, then press Enter...</span></div>
+
+<h4 style="margin:12px 0 4px">C2. Unplug, then plug in</h4>
+<ol class="steps">
+  <li><strong>Unplug</strong> the camera from the Mac (and from the phone, if it is there). Press <kbd>Return</kbd>.</li>
+  <li>The script shows:
+    <div class="term">== Step 2 of 2 ==
+<span class="hl">Now PLUG the camera in, point it at the test object, wait about 5 seconds, then press Enter...</span></div></li>
+  <li><strong>Plug the camera into the Mac</strong>, point it at the object, wait 5 seconds, press <kbd>Return</kbd>.</li>
+  <li>If the Mac asks <em>"Allow accessory to connect?"</em>, click <strong>Allow</strong>.</li>
+</ol>
+
+<h4 style="margin:12px 0 4px">C3. Allow the camera (first test only) and wait</h4>
+<ol class="steps">
+  <li>The first time, macOS shows <em>"Terminal" would like to access the camera</em>. Click <strong>OK</strong> / <strong>Allow</strong>.</li>
+  <li>If the script then says <code>The first try did not get a picture ... press Enter to try again</code>, keep the camera pointed at the object and press <kbd>Return</kbd>.</li>
+  <li>Keep the camera still for about 30 seconds until you see the result:</li>
+</ol>
+<div class="term">== Result ==
+...
+Frame grab: frame.png saved; <span class="hl">frames-native.raw saved</span> (... bytes, 10 frames)
+
+<span class="hl">DONE. Send this file: /Users/yourname/Desktop/thermal-probe-20261114-101500.zip</span></div>
+<div class="box note"><strong>What matters</strong>The line starting <code>Frame grab:</code> should say <strong>frames-native.raw saved</strong>. The rest of the result (the "VERDICT" lines) is for us; you don't need to understand it.</div>
+
+<h4 style="margin:12px 0 4px">C4. Take the reference reading on the phone</h4>
+<ol class="steps">
+  <li>Unplug the camera from the Mac and plug it into the phone.</li>
+  <li>Open the HIKMICRO Viewer app and point the camera at the <strong>same object</strong>, from the same distance.</li>
+  <li>Take a <strong>screenshot</strong> that shows the temperature (the "Max" value and the colour scale).</li>
+</ol>
+<p><strong>Then repeat C1 to C4 for the next object.</strong> Each run creates a new <code>thermal-probe-….zip</code> on the Desktop.</p>
+
+<h3>Optional: rename the zip files</h3>
+<p>To avoid mix-ups, rename each zip on the Desktop after its test: click the file once, press <kbd>Return</kbd>, type a new name (<code>hot.zip</code>, <code>cold.zip</code>, <code>hand.zip</code>) and press <kbd>Return</kbd>.</p>
+
+<!-- ============================================================ PART D -->
+<h2>Part D: Send the files <span class="tag">2 minutes</span></h2>
+<p>Send these on WhatsApp or email:</p>
+<table>
+  <tr><th>From the Mac Desktop</th><th>From the phone</th></tr>
+  <tr><td>3 zip files: <code>thermal-probe-….zip</code> (or hot / cold / hand.zip)</td><td>3 screenshots from the HIKMICRO app</td></tr>
+</table>
+<p>With each pair, write one line saying which object it is, for example: <em>"Hot kettle: hot.zip + screenshot, app showed max 67.3°C"</em>.</p>
+<p>Please send only the <code>.zip</code> files, not the <code>thermal-probe-…</code> folders next to them. You can leave the folders on the Desktop or delete them afterwards.</p>
+
+<!-- ============================================================ HELP -->
+<h2>If something goes wrong</h2>
+<table class="avoid">
+  <tr><th style="width:42%">What you see</th><th>What to do</th></tr>
+  <tr><td><code>No such file or directory</code> when starting the script</td><td>The script is not in Downloads. Repeat step A2, then try again.</td></tr>
+  <tr><td><code>command not found: brew</code></td><td>Paste the command from step B2.6, then try again. If it still fails, Homebrew is not installed: do step B2.</td></tr>
+  <tr><td>Homebrew says the user is not an administrator, or installing is blocked</td><td>The Mac account needs admin rights. Use an admin account, or ask IT. If that is not possible, tell us.</td></tr>
+  <tr><td>The result says <code>NOTE: ffmpeg is not installed</code></td><td>Do Part B3, then run the test again.</td></tr>
+  <tr><td>The result says <code>raw frames NOT saved</code> or <code>could not grab a picture</code></td><td>Camera access is probably blocked. Open <strong>System Settings → Privacy &amp; Security → Camera</strong>, turn on <strong>Terminal</strong>, choose "Quit &amp; Reopen" if asked, then run the test again.</td></tr>
+  <tr><td><code>VERDICT: INCONCLUSIVE</code> / <code>Camera not identified</code></td><td>The Mac did not detect the camera. Plug it directly into the Mac (no hub or adapter), make sure it is unplugged from the phone, and run the test again.</td></tr>
+  <tr><td>Pressing <kbd>Return</kbd> does nothing</td><td>Click inside the Terminal window first, then press <kbd>Return</kbd>.</td></tr>
+  <tr><td>Anything else</td><td>Take a screenshot of the whole Terminal window (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>4</kbd>, then <kbd>Space</kbd>, then click the window) and send it to us. Send any zip files created so far too.</td></tr>
+</table>
+
+<h2>What the script does</h2>
+<ul>
+  <li>Reads the list of USB devices and cameras connected to the Mac, and the video formats the thermal camera offers.</li>
+  <li>Takes one picture and ten raw frames (less than a second of video) from the thermal camera.</li>
+  <li>Saves everything into a folder and a zip on the Desktop. Nothing is sent anywhere automatically.</li>
+  <li>Does not change any settings and does not install anything. ffmpeg and Homebrew are installed only by the commands in Part B, which you run yourself.</li>
+  <li>The zip contains: a short text report, the camera's picture and raw frames, and a list of USB devices connected to this Mac.</li>
+</ul>
+<p>Removing the tools later (optional): <code>brew uninstall ffmpeg</code>. You can delete the script from Downloads.</p>
+
+<p class="foot">Thermal camera test for EVITA · Mac script version 2 · Questions: contact the vDoIT team on the WhatsApp group</p>
+</div>
+</body>
+</html>

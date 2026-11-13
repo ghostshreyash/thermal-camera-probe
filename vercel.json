@@ -1,5 +1,9 @@
 {
-  "rewrites": [{ "source": "/", "destination": "/camera-probe.html" }],
+  "rewrites": [
+    { "source": "/", "destination": "/camera-probe.html" },
+    { "source": "/mac", "destination": "/camera-probe-mac.sh" },
+    { "source": "/mac-guide", "destination": "/mac-guide.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
