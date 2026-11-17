@@ -47,7 +47,7 @@ lower(){ printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 # ---------------------------------------------------------------- USB devices
 # One line per device:    D|location|VID|PID|class|vendor|product|serial|usb
 # One line per interface: I|location|number|class|subclass|protocol
-AWK_USB=$(cat <<'EOF'
+IFS= read -r -d '' AWK_USB <<'EOF' || true
 function hx(n, w) { return sprintf("0x%0" w "X", n + 0) }
 function clean(s) { gsub(/\|/, "/", s); return s }
 function flush() {
@@ -95,7 +95,6 @@ function flush() {
 }
 END { flush() }
 EOF
-)
 
 usb_list() {
   local cls
@@ -111,7 +110,7 @@ usb_list() {
 # Uses AVFoundation through JavaScript for Automation (built into macOS).
 # One line per camera: C|index|name|uniqueID|modelID|manufacturer|transport
 # One line per format: F|index|fourcc|width|height|minFps|maxFps|description
-JXA_CAMS=$(cat <<'EOF'
+IFS= read -r -d '' JXA_CAMS <<'EOF' || true
 ObjC.import('Foundation');
 ObjC.import('AVFoundation');
 ObjC.import('CoreMedia');
@@ -156,7 +155,6 @@ try {
 } catch (e) { out.push('E|' + e); }
 out.join('\n');
 EOF
-)
 
 cams_list() { osascript -l JavaScript -e "$JXA_CAMS" 2>>"$RAW/avfoundation-errors.txt"; }
 
