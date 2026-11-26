@@ -8,7 +8,9 @@
      which USB device is the camera (skip with -NoWizard).
   2. Reports its USB identity: vendor/product ID, USB class, Windows driver.
   3. Lists every video format the camera offers (Windows camera API).
-  4. If ffmpeg is installed, grabs one raw frame and one PNG.
+  4. If ffmpeg is installed, saves ten raw frames exactly as the camera sent
+     them (its default mode, then 96x322 if offered) and one PNG. Every
+     capture stops itself after 15 seconds instead of hanging.
   5. Gives a verdict and writes everything to a folder on the Desktop, zipped.
 
   Read-only: nothing on the camera or the PC is changed.
@@ -167,26 +169,87 @@ $formats = @($formats | Sort-Object Camera, Subtype, Width, Height, Fps -Unique)
 if ($formats.Count) { $formats | Format-Table -AutoSize | Out-String -Width 200 | Write-Host }
 else { Write-Host "No video formats found for the camera (it may not be a standard USB camera)." -ForegroundColor Yellow }
 
-# ---------------------------------------------------------------- 3. ffmpeg frame
+# ---------------------------------------------------------------- 3. ffmpeg frames
 Write-Step "3. Raw frame capture (needs ffmpeg)"
+# ffmpeg installed with winget in this same window is not on PATH until the
+# window is reopened; read PATH again so it is found either way
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
 $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
 $frameFiles = @()
-$ffmpegList = $null
+$captures = @()
 $target = $cameraNames | Where-Object IsTarget | Select-Object -First 1
+
+<#
+  Run ffmpeg, but never let it hang. A camera can accept a mode and then send
+  nothing: on Windows the MiniE's 96x322 mode never starts, and ffmpeg then
+  waits for ever. Stopping it with Ctrl+C leaves the camera wedged until it is
+  replugged, so the script stops it itself after a time limit.
+#>
+function Invoke-Ffmpeg([string[]]$ArgList, [string]$LogName, [int]$Seconds = 15) {
+  $log = Join-Path $outDir $LogName
+  $quoted = $ArgList | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }
+  $p = Start-Process -FilePath $ffmpeg.Source -ArgumentList ($quoted -join ' ') -NoNewWindow -PassThru `
+    -RedirectStandardError $log -RedirectStandardOutput (Join-Path $outDir 'ffmpeg-stdout.txt')
+  if (-not $p.WaitForExit($Seconds * 1000)) {
+    try { $p.Kill() } catch { }
+    return 'timeout'
+  }
+  return 'done'
+}
+
+<# Grab ten frames exactly as the camera sends them; $Size empty = the camera's default mode #>
+function Get-RawFrames([string]$Name, [string]$Size, [string]$File) {
+  $ffArgs = @('-hide_banner', '-loglevel', 'info', '-y', '-f', 'dshow', '-rtbufsize', '64M')
+  if ($Size) { $ffArgs += @('-video_size', $Size, '-pixel_format', 'yuyv422') }
+  $ffArgs += @('-i', "video=$Name", '-frames:v', '10', '-c:v', 'copy', '-f', 'rawvideo', (Join-Path $outDir $File))
+  $logName = ($File -replace '\.raw$', '') + '-ffmpeg.txt'
+  $outcome = Invoke-Ffmpeg $ffArgs $logName
+  $path = Join-Path $outDir $File
+  $bytes = if (Test-Path $path) { (Get-Item $path).Length } else { 0 }
+  # The frame size the camera actually streamed, from ffmpeg's own log
+  $w = 0; $h = 0
+  $logText = Get-Content (Join-Path $outDir $logName) -Raw -ErrorAction SilentlyContinue
+  if ($logText -and $logText -match 'Video: .*?, (\d+)x(\d+)') { $w = [int]$Matches[1]; $h = [int]$Matches[2] }
+  $frameBytes = $w * $h * 2
+  $frames = if ($frameBytes) { [math]::Floor($bytes / $frameBytes) } else { 0 }
+  $whole = $frameBytes -and $bytes -gt 0 -and ($bytes % $frameBytes) -eq 0
+  if ($bytes -eq 0 -and (Test-Path $path)) { Remove-Item $path }
+  [pscustomobject]@{ File = $File; Requested = $(if ($Size) { $Size } else { 'default' }); Width = $w; Height = $h
+    Bytes = $bytes; Frames = $frames; WholeFrames = [bool]$whole; Outcome = $outcome }
+}
+
 if (-not $ffmpeg) {
-  Write-Host "ffmpeg not installed - skipping. (Optional: 'winget install Gyan.FFmpeg', then run again.)"
+  Write-Host "ffmpeg not installed - skipping. (Install it with 'winget install Gyan.FFmpeg', then run again.)" -ForegroundColor Yellow
 } elseif (-not $target) {
   Write-Host "No camera to capture from - skipping."
 } else {
   $name = $target.Name
-  $ffmpegList = (& ffmpeg -hide_banner -list_options true -f dshow -i "video=$name" 2>&1) -join "`n"
-  Set-Content -Path (Join-Path $outDir 'ffmpeg-formats.txt') -Value $ffmpegList -Encoding UTF8
+  Write-Host "Capturing from '$name'. Keep the camera still, pointed at the object..."
+  $listing = Invoke-Ffmpeg @('-hide_banner', '-list_options', 'true', '-f', 'dshow', '-i', "video=$name") 'ffmpeg-formats.txt'
+
+  # 1. The camera's own default mode first: on Windows this is the one that streams (96x176 on the MiniE)
+  $captures += Get-RawFrames $name '' 'frames-native.raw'
+  # 2. A picture, for a person to see what was in front of the camera
   $png = Join-Path $outDir 'frame.png'
-  $raw = Join-Path $outDir 'frame-native.raw'
-  & ffmpeg -hide_banner -loglevel error -y -f dshow -i "video=$name" -frames:v 1 $png 2>&1 | Out-Null
-  & ffmpeg -hide_banner -loglevel error -y -f dshow -i "video=$name" -frames:v 1 -f rawvideo $raw 2>&1 | Out-Null
-  foreach ($f in $png, $raw) { if (Test-Path $f) { $frameFiles += (Split-Path $f -Leaf) } }
-  Write-Host ("Saved: " + $(if ($frameFiles) { $frameFiles -join ', ' } else { 'nothing (capture failed)' }))
+  $null = Invoke-Ffmpeg @('-hide_banner', '-loglevel', 'error', '-y', '-f', 'dshow', '-rtbufsize', '64M', '-i', "video=$name", '-frames:v', '1', $png) 'ffmpeg-png.txt'
+  # 3. The full 96x322 mode last, because it may never start and leave the camera needing a replug
+  if (Select-String -InputObject ((Get-Content (Join-Path $outDir 'ffmpeg-formats.txt') -Raw -ErrorAction SilentlyContinue) + '') -Pattern 's=96x322' -Quiet) {
+    $captures += Get-RawFrames $name '96x322' 'frames-96x322.raw'
+  }
+
+  foreach ($c in $captures) {
+    if ($c.Bytes -gt 0) { $frameFiles += $c.File }
+    $line = if ($c.Bytes -gt 0) {
+      "$($c.File) saved ($($c.Bytes) bytes, $($c.Frames) frames of $($c.Width)x$($c.Height))" + $(if (-not $c.WholeFrames) { ' - WARNING: not whole frames' } else { '' })
+    } elseif ($c.Outcome -eq 'timeout') {
+      "$($c.Requested) mode: the camera sent nothing in 15 seconds (normal for 96x322 on Windows)"
+    } else { "$($c.Requested) mode: capture failed (see $($c.File -replace '\.raw$', '')-ffmpeg.txt)" }
+    Write-Host ("Frame grab: " + $line) -ForegroundColor $(if ($c.Bytes -gt 0) { 'Green' } else { 'Yellow' })
+  }
+  if (Test-Path $png) { $frameFiles += 'frame.png' }
+  if (-not ($captures | Where-Object Bytes)) {
+    Write-Host "No raw frames were saved. Unplug the camera, plug it back in, and run the script again." -ForegroundColor Yellow
+  }
 }
 
 # ---------------------------------------------------------------- 4. verdict
@@ -221,14 +284,14 @@ Write-Host $verdict.Detail
 # ---------------------------------------------------------------- 5. save
 $report = [ordered]@{
   tool      = 'thermal-camera-probe/windows'
-  version   = 1
+  version   = 2
   createdAt = (Get-Date).ToString('o')
   computer  = @{ os = (Get-CimInstance Win32_OperatingSystem).Caption; build = [Environment]::OSVersion.Version.ToString(); powershell = $PSVersionTable.PSVersion.ToString() }
   mode      = $(if ($NoWizard) { 'list-all' } else { 'unplug-replug' })
   devices   = @($described | Select-Object * -ExcludeProperty _classes)
   cameras   = $cameraNames
   formats   = $formats
-  ffmpeg    = @{ installed = [bool]$ffmpeg; frames = $frameFiles }
+  ffmpeg    = @{ installed = [bool]$ffmpeg; frames = $frameFiles; captures = $captures }
   verdict   = @{ code = $verdict.Code; title = $verdict.Title; detail = $verdict.Detail }
 }
 $report | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $outDir 'report.json') -Encoding UTF8

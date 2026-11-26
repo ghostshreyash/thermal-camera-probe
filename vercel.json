@@ -2,12 +2,21 @@
   "rewrites": [
     { "source": "/", "destination": "/camera-probe.html" },
     { "source": "/mac", "destination": "/camera-probe-mac.sh" },
-    { "source": "/mac-guide", "destination": "/mac-guide.html" }
+    { "source": "/mac-guide", "destination": "/mac-guide.html" },
+    { "source": "/windows", "destination": "/camera-probe.ps1" },
+    { "source": "/windows-guide", "destination": "/windows-guide.html" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [{ "key": "Permissions-Policy", "value": "camera=(self), usb=(self)" }]
+    },
+    {
+      "source": "/(windows|camera-probe\\.ps1)",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Content-Disposition", "value": "attachment; filename=\"camera-probe.ps1\"" }
+      ]
     }
   ]
 }

@@ -13,7 +13,16 @@ each tool.
   heredocs inside `$(...)` and no bash 4 features. **LF line endings only**
   (`.gitattributes` enforces this).
 - `vercel.json`: routes `/` → the page, `/mac` → the Mac script, `/mac-guide`
-  → the guide.
+  → the Mac guide, `/windows` → the Windows script (served as a download),
+  `/windows-guide` → the Windows guide.
+- The guides are `mac-guide.html` and `windows-guide.html`. Their PDFs are
+  printed from the HTML with headless Chrome:
+  `chrome --headless=new --no-pdf-header-footer --print-to-pdf=<file>.pdf <guide>.html`.
+  Reprint the PDF whenever a guide changes, and keep each guide's expected
+  output in step with the script's real messages.
+- `camera-probe.ps1` must stay **ASCII-only**: Windows PowerShell 5.1 reads a
+  BOM-less file as ANSI. Every ffmpeg call goes through `Invoke-Ffmpeg`,
+  which stops it after a time limit; never call ffmpeg directly there.
 
 **Deploying.** Live at https://thermal-camera-probe.vercel.app, on Shreyash's
 personal Vercel account. It is **not** git-connected, so a push does not

@@ -36,6 +36,13 @@ To test locally: run `python -m http.server 8765` in this folder, then open http
 
 ## 2. Windows PC: `camera-probe.ps1`
 
+**Step-by-step guide for a non-technical tester:** https://thermal-camera-probe.vercel.app/windows-guide
+(`windows-guide.html`; PDF: `Thermal-Camera-Test-Windows-Guide.pdf`). Download the script with:
+
+```powershell
+Invoke-WebRequest https://thermal-camera-probe.vercel.app/windows -OutFile "$HOME\Downloads\camera-probe.ps1"
+```
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\camera-probe.ps1            # unplug/replug wizard (recommended)
 powershell -ExecutionPolicy Bypass -File .\camera-probe.ps1 -NoWizard  # just list every USB/camera device
@@ -45,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File .\camera-probe.ps1 -NoWizard  # just li
 - The wizard asks you to unplug and replug the camera, so it knows exactly which device is the camera.
 - It reports the vendor and product ID, USB class, and Windows driver. `usbvideo` means a standard USB camera.
 - It lists every video format the camera offers through the Windows camera API. Raw `Y16`/`L16` formats, or a frame twice as tall as the sensor, point to temperature data.
-- If **ffmpeg** is installed (`winget install Gyan.FFmpeg`), it also saves one PNG and one raw native frame.
+- If **ffmpeg** is installed (`winget install Gyan.FFmpeg`), it also saves one PNG and **ten raw frames** exactly as the camera sent them: the camera's default mode (`frames-native.raw`; 96x176 on the MiniE), then 96x322 if offered (`frames-96x322.raw`). Every capture stops itself after 15 seconds, so a mode that never starts cannot hang the script. On Windows the MiniE's 96x322 never starts; that is expected.
 - Output goes to `Desktop\thermal-probe-<time>\` plus a `.zip` of it. Send the zip.
 
 ## 3. Mac: `camera-probe-mac.sh`

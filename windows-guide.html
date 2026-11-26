@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thermal Camera Test on Windows</title>
+<style>
+  :root {
+    --ink: #1b2430; --muted: #5b6676; --line: #d9dee5; --soft: #f3f5f8;
+    --accent: #0f6e5a; --accent-soft: #e5f3ef; --warn: #8a5a00; --warn-soft: #fff4dc;
+    --term-bg: #0c2340; --term-ink: #eef2f7; --term-dim: #9fb0c4; --term-hl: #8fe3b8;
+  }
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 10.5pt/1.5 "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif; }
+  .page { max-width: 780px; margin: 0 auto; padding: 24px 16px; }
+  @media print { .page { padding: 0; max-width: none; } }
+  h1 { font-size: 21pt; line-height: 1.2; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 11pt; }
+  h2 { break-after: avoid; font-size: 14pt; margin: 26px 0 8px; padding-top: 10px; border-top: 2px solid var(--ink); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  h2 .tag { font-size: 9pt; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 10px; }
+  h3, h4 { break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; }
+  p { margin: 6px 0; }
+  ol, ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .steps > li { margin: 10px 0; padding-left: 4px; }
+  .steps > li::marker { font-weight: 700; }
+  code { font-family: Consolas, Menlo, monospace; font-size: 9.5pt; background: var(--soft); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+  kbd { font-family: inherit; font-size: 9pt; border: 1px solid #b9c0ca; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: #fff; white-space: nowrap; }
+  .cmd { margin: 6px 0 8px; background: var(--term-bg); color: var(--term-hl); font: 8pt/1.45 Consolas, Menlo, monospace; padding: 9px 10px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; break-inside: avoid; }
+  @media screen { .cmd { font-size: 9.5pt; } }
+  .cmd::before { content: "Copy and paste:"; display: block; color: var(--term-dim); font: 8pt/1.4 "Segoe UI", sans-serif; margin-bottom: 3px; letter-spacing: .02em; }
+  .term { margin: 6px 0 8px; background: var(--term-bg); color: var(--term-ink); font: 9pt/1.45 Consolas, Menlo, monospace; padding: 9px 12px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; break-inside: avoid; }
+  .term::before { content: "What you will see:"; display: block; color: var(--term-dim); font: 8pt/1.4 "Segoe UI", sans-serif; margin-bottom: 3px; }
+  .term .hl { color: var(--term-hl); font-weight: 700; }
+  .term .dim { color: var(--term-dim); }
+  .term .yl { color: #f5d67b; }
+  .box { border-radius: 6px; padding: 9px 12px; margin: 10px 0; break-inside: avoid; }
+  .note { background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+  .box strong:first-child { display: block; margin-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.8pt; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .check { list-style: none; padding-left: 0; }
+  .check li::before { content: "\2610"; margin-right: 8px; }
+  .overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+  @media (max-width: 560px) { .overview { grid-template-columns: 1fr 1fr; } }
+  .overview div { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .overview b { display: block; color: var(--accent); font-size: 9pt; }
+  .overview span { font-size: 9.5pt; }
+  .avoid { break-inside: avoid; }
+  .foot { margin-top: 28px; color: var(--muted); font-size: 9pt; border-top: 1px solid var(--line); padding-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Thermal Camera Test on Windows</h1>
+<p class="sub">Step-by-step guide for testing the HIKMICRO MiniE thermal camera for the EVITA app</p>
+
+<div class="box note"><strong>Easiest way to follow this guide</strong>Open it on the Windows PC itself, in Chrome or Edge: <code>thermal-camera-probe.vercel.app/windows-guide</code>. Then you can copy each command straight from the page.</div>
+
+<p><strong>Why we need this:</strong> the camera sends its raw sensor readings over USB. To show temperatures inside EVITA, we need a few samples of these readings taken while the camera points at objects of known temperature. A small script collects them. It only reads information, changes nothing on the PC and uploads nothing. You send us the files it saves.</p>
+
+<div class="overview">
+  <div><b>Part A</b><span>Get ready<br>5 min</span></div>
+  <div><b>Part B</b><span>One-time install<br>5–10 min</span></div>
+  <div><b>Part C</b><span>Run 3 tests<br>about 3 min each</span></div>
+  <div><b>Part D</b><span>Send the files<br>2 min</span></div>
+</div>
+
+<h2>Before you start</h2>
+<div class="grid">
+<ul class="check">
+  <li>A Windows 10 or 11 PC or laptop with a <strong>USB-C port</strong></li>
+  <li>Internet connection</li>
+  <li>The HIKMICRO MiniE camera</li>
+  <li>About 30 minutes</li>
+</ul>
+<ul class="check">
+  <li>A phone with the HIKMICRO Viewer app (for reference readings)</li>
+  <li>A kettle or mug of <strong>hot water</strong></li>
+  <li>A plate or glass of <strong>cold water or ice</strong></li>
+</ul>
+</div>
+<div class="box warn"><strong>Two rules that save a lot of trouble</strong>
+1. <strong>Never press <kbd>Ctrl</kbd>+<kbd>C</kbd></strong> while the script is running, even if it looks stuck. It stops on its own; pressing Ctrl+C can jam the camera until it is unplugged.<br>
+2. <strong>Paste with a right-click</strong> inside the PowerShell window. This works everywhere, including over AnyDesk or TeamViewer, where <kbd>Ctrl</kbd>+<kbd>V</kbd> can misfire.</div>
+
+<!-- ============================================================ PART A -->
+<h2>Part A: Get ready <span class="tag">5 minutes</span></h2>
+
+<h3>A1. Open Windows PowerShell</h3>
+<ol class="steps">
+  <li>Click <strong>Start</strong> (or press the <kbd>⊞ Windows</kbd> key) and type <code>powershell</code>.</li>
+  <li>Click <strong>Windows PowerShell</strong>. Not "PowerShell 7", not "PowerShell ISE", and no need to "Run as administrator".</li>
+  <li>A blue or black window with a blinking cursor opens. This is where you will paste every command in this guide.</li>
+</ol>
+<div class="box note"><strong>How to run a command</strong>Select the command in the dark box and copy it (<kbd>Ctrl</kbd>+<kbd>C</kbd>, on this page). Then <strong>right-click</strong> inside the PowerShell window to paste it, and press <kbd>Enter</kbd>. Wait until the cursor comes back (a line ending in <code>&gt;</code>) before the next command.</div>
+
+<h3>A2. Download the test script</h3>
+<p>This saves the script into your <strong>Downloads</strong> folder.</p>
+<div class="cmd">Invoke-WebRequest https://thermal-camera-probe.vercel.app/windows -OutFile "$HOME\Downloads\camera-probe.ps1"</div>
+<p>If nothing is printed and the cursor comes back, it worked. A blue progress bar may flash for a moment.</p>
+
+<!-- ============================================================ PART B -->
+<h2>Part B: One-time install <span class="tag">5–10 minutes, only once</span></h2>
+<p>The script needs a free tool called <strong>ffmpeg</strong> to save the camera's raw readings. It is installed with <strong>winget</strong>, the installer built into Windows 10 and 11.</p>
+
+<h3>B1. Install ffmpeg</h3>
+<div class="cmd">winget install Gyan.FFmpeg --accept-source-agreements --accept-package-agreements</div>
+<div class="term">Found FFmpeg [Gyan.FFmpeg] Version 9.1
+Downloading https://github.com/GyanD/codexffmpeg/releases/...
+  ██████████████████████████████  252 MB / 252 MB
+...
+<span class="yl">Path environment variable modified; restart your shell to use the new value.</span>
+<span class="hl">Successfully installed</span></div>
+<p>The download is about 250 MB, so it can take a few minutes. If Windows asks "Do you want to allow this app to make changes?", click <strong>Yes</strong>.</p>
+
+<h3>B2. Close PowerShell and open it again</h3>
+<p>Close the PowerShell window (the <strong>X</strong> at the top right), then open a new one as in step A1. The new window is the one that knows where ffmpeg is. Check it:</p>
+<div class="cmd">ffmpeg -version</div>
+<div class="term"><span class="hl">ffmpeg version 9.1-full_build-www.gyan.dev</span> Copyright (c) 2000-2026 the FFmpeg developers
+<span class="dim">built with gcc ...</span></div>
+<p>The exact version number does not matter. If you see <code>'ffmpeg' is not recognized</code>, close the window and open a new one once more. If it still fails, do B1 again.</p>
+
+<!-- ============================================================ PART C -->
+<h2>Part C: Run the tests <span class="tag">about 3 minutes per test</span></h2>
+<p>We need <strong>3 tests</strong>, one per object. For each test you take two readings of the <strong>same object</strong>: first with the script on the PC, then with the HIKMICRO app on the phone.</p>
+
+<table>
+  <tr><th>Test</th><th>Point the camera at</th><th>Tip</th></tr>
+  <tr><td><strong>1. Hot</strong></td><td>Kettle or mug filled with hot water</td><td>Hot water cools quickly. Do the phone reading right after the PC.</td></tr>
+  <tr><td><strong>2. Cold</strong></td><td>Plate or glass with cold water or ice</td><td>Same as above.</td></tr>
+  <tr><td><strong>3. Hand</strong></td><td>An open palm</td><td>Hold the hand still, about 30 cm from the camera. <strong>Not</strong> right against the lens; the hand should not fill the whole view.</td></tr>
+</table>
+
+<div class="box note"><strong>Keep the camera steady</strong>Hold it (or rest it) about <strong>30 cm</strong> from the object, so the object fills most of the view with some background around it. Keep the same distance for the PC and phone readings.</div>
+
+<h3>For each test, follow C1 to C4</h3>
+
+<h4 style="margin:12px 0 4px">C1. Start the script</h4>
+<div class="cmd">powershell -ExecutionPolicy Bypass -File "$HOME\Downloads\camera-probe.ps1"</div>
+<div class="term">== 1. Finding the camera
+Close the camera maker's app if it is open.
+<span class="hl">UNPLUG the thermal camera, then press Enter:</span></div>
+
+<h4 style="margin:12px 0 4px">C2. Unplug, then plug in</h4>
+<ol class="steps">
+  <li><strong>Unplug</strong> the camera from the PC (and from the phone, if it is there). Press <kbd>Enter</kbd>.</li>
+  <li>The script shows:
+    <div class="term"><span class="hl">PLUG the thermal camera back in, wait 5 seconds, then press Enter:</span></div></li>
+  <li><strong>Plug the camera into the PC</strong> directly (no hub if you can avoid it), point it at the object, wait 5 seconds, press <kbd>Enter</kbd>.</li>
+</ol>
+<div class="term"><span class="hl">2 new device entries appeared.</span>
+<span class="dim">Name                 WindowsClass VendorId ProductId ...</span>
+UVC Camera           Camera       2BDF     0102      ...
+USB Composite Device USB          2BDF     0102      ...</div>
+
+<h4 style="margin:12px 0 4px">C3. Keep the camera still and wait</h4>
+<p>The script now reads the camera's formats and saves the frames. Keep the camera pointed at the object, without moving, for <strong>up to one minute</strong>. Do not press anything.</p>
+<div class="term">== 3. Raw frame capture (needs ffmpeg)
+Capturing from 'UVC Camera'. Keep the camera still, pointed at the object...
+<span class="hl">Frame grab: frames-native.raw saved (337920 bytes, 10 frames of 96x176)</span>
+<span class="yl">Frame grab: 96x322 mode: the camera sent nothing in 15 seconds (normal for 96x322 on Windows)</span>
+
+== 4. Result
+Direct integration looks possible - standard USB camera that appears to send temperature data
+...
+== Done
+Send this file to the EVITA team:
+  <span class="hl">C:\Users\<span class="dim">yourname</span>\Desktop\thermal-probe-20261126-153000.zip</span></div>
+<div class="box note"><strong>What matters</strong>One <code>Frame grab:</code> line should say <strong>frames-native.raw saved</strong>. A yellow line about 96x322 is <strong>expected</strong> on Windows; it is not an error. The "Result" lines are for us; you don't need to understand them.</div>
+
+<h4 style="margin:12px 0 4px">C4. Take the reference reading on the phone</h4>
+<ol class="steps">
+  <li>Unplug the camera from the PC and plug it into the phone.</li>
+  <li>Open the HIKMICRO Viewer app and point the camera at the <strong>same object</strong>, from the same distance.</li>
+  <li>Take a <strong>screenshot</strong> that shows the temperature (the "Max" value and the colour scale).</li>
+</ol>
+<p><strong>Then repeat C1 to C4 for the next object.</strong> Each run creates a new <code>thermal-probe-….zip</code> on the Desktop. Unplugging and plugging in at the start of every test (C2) is important: it also resets the camera.</p>
+
+<h3>Optional: rename the zip files</h3>
+<p>To avoid mix-ups, rename each zip on the Desktop after its test: click the file once, press <kbd>F2</kbd>, type a new name (<code>hot</code>, <code>cold</code>, <code>hand</code>) and press <kbd>Enter</kbd>.</p>
+
+<!-- ============================================================ PART D -->
+<h2>Part D: Send the files <span class="tag">2 minutes</span></h2>
+<p>Send these:</p>
+<table>
+  <tr><th>From the PC's Desktop</th><th>From the phone</th></tr>
+  <tr><td>3 zip files: <code>thermal-probe-….zip</code> (or hot / cold / hand.zip)</td><td>3 screenshots from the HIKMICRO app</td></tr>
+</table>
+<p>With each pair, write one line saying which object it is, for example: <em>"Hot kettle: hot.zip + screenshot, app showed max 67.3°C"</em>.</p>
+<p>Please send only the <code>.zip</code> files, not the <code>thermal-probe-…</code> folders next to them. If the Desktop is synced to OneDrive, the files are still on the Desktop; nothing else changes.</p>
+
+<!-- ============================================================ HELP -->
+<h2>If something goes wrong</h2>
+<table class="avoid">
+  <tr><th style="width:42%">What you see</th><th>What to do</th></tr>
+  <tr><td><code>running scripts is disabled on this system</code></td><td>Start the script with the exact command from C1. The <code>-ExecutionPolicy Bypass</code> part allows it for this one run only.</td></tr>
+  <tr><td><code>Please run this in Windows PowerShell (powershell.exe), not PowerShell 7</code></td><td>You opened PowerShell 7. Close it and open <strong>Windows PowerShell</strong> (step A1).</td></tr>
+  <tr><td><code>Cannot find path ... camera-probe.ps1</code> or <code>does not exist</code></td><td>The script is not in Downloads. Repeat step A2, then try again.</td></tr>
+  <tr><td><code>'winget' is not recognized</code></td><td>Open the <strong>Microsoft Store</strong>, search for <strong>App Installer</strong>, install or update it, then open a new PowerShell window and do B1 again. If the Store is blocked (office PCs), tell us.</td></tr>
+  <tr><td><code>ffmpeg not installed - skipping</code></td><td>Close PowerShell, open a new window, check <code>ffmpeg -version</code> (B2), then run the test again.</td></tr>
+  <tr><td><code>No new device appeared</code></td><td>The PC did not see the camera. Unplug it from the phone, plug it straight into the PC (no hub or adapter), listen for the Windows "connected" sound, and run the test again.</td></tr>
+  <tr><td><code>No raw frames were saved</code> or <code>capture failed</code></td><td>Close any app that may be using a camera (Camera, Teams, Zoom, WhatsApp, the HIKMICRO app). Check <strong>Settings → Privacy &amp; security → Camera</strong>: turn on <strong>Camera access</strong> and <strong>Let desktop apps access your camera</strong>. Then run the test again; the unplug/plug step resets the camera.</td></tr>
+  <tr><td>Nothing happens for more than 2 minutes</td><td>Do <strong>not</strong> press Ctrl+C. Close the window with the <strong>X</strong>, unplug the camera, wait 5 seconds, plug it back in, open a new PowerShell window and start again from C1.</td></tr>
+  <tr><td>Pressing <kbd>Enter</kbd> does nothing</td><td>Click inside the PowerShell window first, then press <kbd>Enter</kbd>.</td></tr>
+  <tr><td>Anything else</td><td>Take a screenshot of the whole PowerShell window (<kbd>⊞ Windows</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) and send it to us. Send any zip files created so far too.</td></tr>
+</table>
+
+<h2>What the script does</h2>
+<ul>
+  <li>Reads the list of USB devices and cameras connected to the PC, and the video formats the thermal camera offers.</li>
+  <li>Takes ten raw frames (less than a second of video) and one picture from the thermal camera. Each capture stops itself after 15 seconds, so it cannot hang.</li>
+  <li>Saves everything into a folder and a zip on the Desktop. Nothing is sent anywhere automatically.</li>
+  <li>Does not change any settings and does not install anything. ffmpeg is installed only by the command in Part B, which you run yourself.</li>
+  <li>The zip contains: a short text report, the camera's raw frames and picture, and a list of the USB devices connected to this PC.</li>
+</ul>
+<p>Removing the tools later (optional): <code>winget uninstall Gyan.FFmpeg</code>. You can delete the script from Downloads.</p>
+
+<p class="foot">Thermal camera test for EVITA · Windows script version 2</p>
+</div>
+</body>
+</html>
